@@ -13,8 +13,8 @@ generation_config = {
     "temperature": 0.7,
 }
 #model = genai.GenerativeModel('gemini-flash-lite-latest', generation_config=generation_config)
-model = genai.GenerativeModel('gemini-1.5-flash', generation_config=generation_config)
-
+#model = genai.GenerativeModel('gemini-1.5-flash', generation_config=generation_config)
+model = genai.GenerativeModel('gemini-2.5-flash')
 # Page Config
 st.set_page_config(page_title="ResumeForge AI", layout="wide")
 
