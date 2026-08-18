@@ -6,9 +6,14 @@ from streamlit_lottie import st_lottie
 import requests
 import re
 
-# API Configuration
-genai.configure(api_key="GOOGLE_API_KEY")  # Replace with your actual API key
-model = genai.GenerativeModel('gemini-flash-lite-latest')
+
+# API Configuration & Temperature setup for dynamic results
+genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+generation_config = {
+    "temperature": 0.7,
+}
+#model = genai.GenerativeModel('gemini-flash-lite-latest', generation_config=generation_config)
+model = genai.GenerativeModel('gemini-1.5-flash', generation_config=generation_config)
 
 # Page Config
 st.set_page_config(page_title="ResumeForge AI", layout="wide")
@@ -38,7 +43,7 @@ if "last_result" not in st.session_state:
 
 with st.sidebar:
     st.markdown("<h1 style='text-align: center; font-size: 28px; margin-top: -50px;'>🤖 ResumeForge AI</h1>", unsafe_allow_html=True)
-    st.header("📂 Upload Center")
+    st.header("Upload Center")
     uploaded_file = st.file_uploader("Upload your CV (PDF)", type=["pdf"])
     st.divider()
 
@@ -64,7 +69,12 @@ if uploaded_file:
     st.success(f"CV Processed! Active Mode: {st.session_state.current_feature}")
 
     if st.button(f"Generate {st.session_state.current_feature} Result"):
-        prompt_map = {"ATS": "Give a score 0-100 for ATS:", "Summary": "Summary:", "Keywords": "Keywords:", "Interview": "Interview Qs:"}
+        prompt_map = {
+            "ATS": "You are a harsh and critical ATS resume scanner. Analyze the CV thoroughly. DO NOT give a generic score. Give a harsh, wide-range score from 10 to 95 based strictly on its flaws, formatting, and keyword matches (poor CVs should get low scores like 35-50, excellent CVs should get 85-95). You MUST output your score in this exact format right at the beginning: 'Score: [number]' followed by a detailed explanation:", 
+            "Summary": "Write a professional summary for this CV:", 
+            "Keywords": "List the missing ATS keywords for this CV:", 
+            "Interview": "Generate mock interview questions based on this CV:"
+        }
         res = model.generate_content(f"{prompt_map[st.session_state.current_feature]} {cv_text[:5000]}")
         st.session_state.last_result = {"type": st.session_state.current_feature, "content": res.text}
 
@@ -72,11 +82,22 @@ if uploaded_file:
         res = st.session_state.last_result
         if res["type"] == "ATS":
             content = res["content"]
-            numbers = re.findall(r'\d+', content)
-            score = int(numbers[0]) if numbers else 0
+            
+            # Smart Regex to extract 'Score: XX' accurately
+            score_match = re.search(r'Score:\s*(\d+)', content, re.IGNORECASE)
+            if score_match:
+                score = int(score_match.group(1))
+            else:
+                numbers = re.findall(r'\d+', content)
+                score = int(numbers[0]) if numbers else 70
+
             if score > 100: score = 100
+            if score < 0: score = 0
+
             fig = go.Figure(go.Indicator(mode="gauge+number", value=score, title={'text': "ATS Score"}))
             st.plotly_chart(fig)
+            st.write("### ATS Feedback & Analysis:")
+            st.info(content)
         else:
             st.info(res["content"])
     
